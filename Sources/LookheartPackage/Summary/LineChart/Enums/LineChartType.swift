@@ -11,8 +11,6 @@ enum LineChartType {
     case BPM
     case HRV
     case STRESS
-    
-    // spo2 test
-//    case SPO2
-//    case BREATHE
+    case SPO2
+    case BREATHE
 }

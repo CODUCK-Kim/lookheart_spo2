@@ -11,17 +11,6 @@ struct LineChartModel {
     var stats: ChartStatistics? = nil
     var stressStats: StressChartStatistics? = nil
     var standardDeviationValue: Double? = nil
-    
-    
-    /** Bpm, Hrv Stress(pns) Value **/
-//    var maxValue: Double = 0
-//    var minValue: Double = 0
-//    var avgValue: Double = 0
-//    
-//    /** Stress(sns) Value **/
-//    var secondMaxValue: Double = 0
-//    var secondMinValue: Double = 0
-//    var secondAvgValue: Double = 0
 }
 
 struct StressDataModel: Codable {
@@ -54,7 +43,7 @@ struct LineChartDataModel {
     var sns: Double?
     var stress: Double?
     
-    // SPO2 TEST
+    // spo2, breathe
     var spo2: Double?
     var breathe: Double?
     
@@ -84,9 +73,6 @@ struct LineChartDataModel {
                     timezone: String(fields[3]),
                     bpm: Double(bpm),
                     temp: Double(temp),
-//                    hrv: Double(hrv)
-                   
-                    // spo2 test
                     spo2: Double(spo2),
                     breathe: Double(breathe)
                 ))

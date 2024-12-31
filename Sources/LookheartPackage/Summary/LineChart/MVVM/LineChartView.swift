@@ -329,7 +329,7 @@ class LineChartVC : UIViewController {
         
 
         switch lineChart {
-        case .BPM, .HRV:
+        case .BPM, .HRV, .SPO2, .BREATHE:
             bpmHrvContents.isHidden = false
             stressContents.isHidden = true
         case .STRESS:
@@ -452,6 +452,10 @@ class LineChartVC : UIViewController {
         case .HRV:
             avgLabel.text = "unit_hrv_avg".localized()
             valueLabel.text = "unit_hrv".localized()
+        case .SPO2:
+            avgLabel.text = "SPO2"
+        case .BREATHE:
+            avgLabel.text = "호흡"
         case .STRESS:
             break
         }
@@ -495,6 +499,24 @@ class LineChartVC : UIViewController {
             snsMaxValue.text = String(format: "%.1f", sns?.maxValue ?? 0)
             snsMinValue.text = String(format: "%.1f", sns?.minValue ?? 0)
             snsAvgValue.text = String(format: "%.1f", sns?.average ?? 0)
+        case .SPO2, .BREATHE:
+            valueLabel.text = "unit_avg_cap".localized()
+            
+            let format = lineChartModel.chartType == .SPO2 ? "%.1f" : "%.0f"
+            
+            let max = lineChartModel.stats?.maxValue ?? 0.0
+            let min = lineChartModel.stats?.minValue ?? 0.0
+            let avg = lineChartModel.stats?.average ?? 0.0
+            
+            let difMax = String(format: format, max - avg)
+            let difMin = String(format: format, avg - min)
+            
+            maxValue.text = String(format: format, max)
+            minValue.text = String(format: format, min)
+            avgValue.text = String(format: format, avg)
+            
+            maxStandardDeviationValue.text = "+\(difMax)"
+            minStandardDeviationValue.text = "-\(difMin)"
         }
     }
     
