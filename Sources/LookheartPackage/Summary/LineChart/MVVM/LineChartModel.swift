@@ -88,8 +88,6 @@ struct LineChartDataModel {
         
         
         for data in stressData {
-            print(data)
-            
             if data.pnsPercent == 100.0 || data.pnsPercent == 100.0 {
                 continue
             }

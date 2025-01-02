@@ -27,9 +27,9 @@ class LineChartService {
         let endPoint = getEndPoint(type)
         
         let parameters: [String: Any] = [
-//            "eq": profile.email,
+            "eq": profile.email,
             
-            "eq": "jhaseung@medsyslab.co.kr", // test
+//            "eq": "jhaseung@medsyslab.co.kr", // test
             "startDate": startDate,
             "endDate": endDate,
             "test": true    // spo2

@@ -198,9 +198,8 @@ public class AuthPhoneNumber: UIView, UITableViewDataSource, UITableViewDelegate
     // MARK: - sendSMS Event
     @objc private func sendButtonEvent() {
         self.endEditing(true)
-        print("sms \(sms)")
-        if smsCnt > 0 && phoneNumber.count > 4 && phoneNumberRegx {
-            
+
+        if smsCnt > 0 && phoneNumber.count > 4 && phoneNumberRegx {            
             if sms {
                 sendSMS()
                 updateUI()
