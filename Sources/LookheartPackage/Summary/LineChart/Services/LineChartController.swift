@@ -222,7 +222,13 @@ class LineChartController {
             
         case .SPO2:
             lineChart.leftAxis.axisMaximum = 100
-            lineChart.leftAxis.axisMinimum = 95
+            lineChart.leftAxis.axisMinimum = 90
+            
+            if let minValue = chartModel.stats?.minValue {
+                if minValue < 95 {
+                    lineChart.leftAxis.axisMinimum = minValue
+                }
+            }
             
 //            lineChart.leftAxis.resetCustomAxisMax()
 //            lineChart.leftAxis.resetCustomAxisMin()
