@@ -204,6 +204,7 @@ class LineChartController {
         
         lineChart.leftAxis.labelCount = 6           // y label default count
         lineChart.leftAxis.removeAllLimitLines()    // remove limit line
+        lineChart.setVisibleXRangeMaximum(1000)
         
         switch chartModel.chartType {
         case .BPM, .HRV:
@@ -221,6 +222,7 @@ class LineChartController {
             lineChart.leftAxis.axisMinimum = 0
             
         case .SPO2:
+            lineChart.setVisibleXRangeMaximum(250)
             lineChart.leftAxis.axisMaximum = 100
             lineChart.leftAxis.axisMinimum = 90
             lineChart.leftAxis.labelCount = 10
