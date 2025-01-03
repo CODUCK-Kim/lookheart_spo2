@@ -234,7 +234,7 @@ class LineChartController {
         case .BREATHE:
             lineChart.leftAxis.axisMaximum = 100
             lineChart.leftAxis.axisMinimum = 95
-            chartModel.stats?.minValue
+            
 //            lineChart.leftAxis.resetCustomAxisMax()
 //            lineChart.leftAxis.resetCustomAxisMin()
         }
