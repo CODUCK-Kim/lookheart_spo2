@@ -164,8 +164,7 @@ class LineChartController {
     ) -> Bool {
         // 1. entries
         print("entries: \(lineChartModel.entries?.count)")
-        
-        guard let entries = lineChartModel.entries else {
+        guard let entries = lineChartModel.entries, entries.count <= 0 else {
             return false // noData
         }
         
