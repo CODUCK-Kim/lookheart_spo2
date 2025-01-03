@@ -195,8 +195,20 @@ class LineChartRepository {
         
     
         // time Table
-        let timeTable = Set(groupData.values.flatMap { $0.map { $0.writeTime } }).sorted()
-        
+        let timeTable: [String] = {
+            switch lineChartType {
+            case .BPM, .HRV, .STRESS:
+                return Set(groupData.values.flatMap { $0.map { $0.writeTime } }).sorted()
+            case .SPO2:
+                return groupData.flatMap { $0.value }   // 값이 없는 time table 제외
+                    .filter { ($0.spo2 ?? 0.0) > 0 }
+                    .map { $0.writeTime }
+            case .BREATHE:
+                return groupData.flatMap { $0.value }
+                    .filter { ($0.breathe ?? 0.0) > 0 }
+                    .map { $0.writeTime }
+            }
+        }()
         
         return LineChartModel(
             entries: entries,

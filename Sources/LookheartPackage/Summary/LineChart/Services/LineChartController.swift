@@ -163,7 +163,7 @@ class LineChartController {
         lineChartModel: LineChartModel
     ) -> Bool {
         // 1. entries
-        guard let entries = lineChartModel.entries else {
+        guard let entries = lineChartModel.entries, entries.count <= 0 else {
             return false // noData
         }
         
@@ -204,8 +204,7 @@ class LineChartController {
         
         lineChart.leftAxis.labelCount = 6           // y label default count
         lineChart.leftAxis.removeAllLimitLines()    // remove limit line
-        lineChart.setVisibleXRangeMaximum(1000)
-        
+            
         switch chartModel.chartType {
         case .BPM, .HRV:
             guard let limitLines = getLimitLines(chartModel) else { return }
@@ -222,36 +221,33 @@ class LineChartController {
             lineChart.leftAxis.axisMinimum = 0
             
         case .SPO2:
-//            lineChart.setVisibleXRangeMaximum(250)
-//            lineChart.leftAxis.axisMaximum = 100
-//            lineChart.leftAxis.axisMinimum = 90
-//            lineChart.leftAxis.labelCount = 10
-//            
-//            if let minValue = chartModel.stats?.minValue {
-//                if minValue < 95 {
-//                    lineChart.leftAxis.axisMinimum = minValue
-//                }
-//            }
+            lineChart.leftAxis.axisMaximum = 100
+            lineChart.leftAxis.axisMinimum = 90
+            lineChart.leftAxis.labelCount = 10
             
-            lineChart.leftAxis.resetCustomAxisMax()
-            lineChart.leftAxis.resetCustomAxisMin()
-
-            // y label count
-            if let axisMax = lineChart.leftAxis.axisMaximum as Double?,
-               let axisMin = lineChart.leftAxis.axisMinimum as Double? {
-                let labelCount = Int((axisMax - axisMin) / 0.5) + 1
-                lineChart.leftAxis.labelCount = labelCount
+            if let minValue = chartModel.stats?.minValue {
+                if minValue < 95 {
+                    lineChart.leftAxis.axisMinimum = minValue
+                }
             }
+            
+//            lineChart.leftAxis.resetCustomAxisMax()
+//            lineChart.leftAxis.resetCustomAxisMin()
+//
+//            // y label count
+//            if let axisMax = lineChart.leftAxis.axisMaximum as Double?,
+//               let axisMin = lineChart.leftAxis.axisMinimum as Double? {
+//                let labelCount = Int((axisMax - axisMin) / 0.5) + 1
+//                lineChart.leftAxis.labelCount = labelCount
+//            }
             
         case .BREATHE:
             lineChart.leftAxis.resetCustomAxisMax()
             lineChart.leftAxis.resetCustomAxisMin()
         }
         
-
         lineChart.data = chartData
-        lineChart.leftAxis.granularity = chartModel.chartType != .SPO2 ? 1 : 0.5
-//        lineChart.leftAxis.granularity = 1
+        lineChart.leftAxis.granularity = 1
         lineChart.xAxis.valueFormatter = IndexAxisValueFormatter(values: timeTable)
     }
     

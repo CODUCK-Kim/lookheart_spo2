@@ -28,10 +28,12 @@ class LineChartService {
         
         let parameters: [String: Any] = [
 //            "eq": profile.email,
-            
-            "eq": "jhaseung@medsyslab.co.kr", // test
+//            "eq": "jhaseung@medsyslab.co.kr", // test
+            "eq": "001425.a1679c7e2e9a4e5196897d7bb9efd28e.0129",   // test
+        
             "startDate": startDate,
             "endDate": endDate,
+            
             "test": true    // spo2
         ]
         
