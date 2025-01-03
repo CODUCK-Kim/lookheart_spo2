@@ -221,22 +221,22 @@ class LineChartController {
             lineChart.leftAxis.axisMinimum = 0
             
         case .SPO2:
-            lineChart.leftAxis.resetCustomAxisMax()
-            lineChart.leftAxis.resetCustomAxisMin()
-
-            // y label count
-            if let axisMax = lineChart.leftAxis.axisMaximum as Double?,
-               let axisMin = lineChart.leftAxis.axisMinimum as Double? {
-                let labelCount = Int((axisMax - axisMin) / 0.5) + 1
-                lineChart.leftAxis.labelCount = labelCount
-            }
-            
-        case .BREATHE:
             lineChart.leftAxis.axisMaximum = 100
             lineChart.leftAxis.axisMinimum = 95
             
 //            lineChart.leftAxis.resetCustomAxisMax()
 //            lineChart.leftAxis.resetCustomAxisMin()
+//
+//            // y label count
+//            if let axisMax = lineChart.leftAxis.axisMaximum as Double?,
+//               let axisMin = lineChart.leftAxis.axisMinimum as Double? {
+//                let labelCount = Int((axisMax - axisMin) / 0.5) + 1
+//                lineChart.leftAxis.labelCount = labelCount
+//            }
+            
+        case .BREATHE:
+            lineChart.leftAxis.resetCustomAxisMax()
+            lineChart.leftAxis.resetCustomAxisMin()
         }
         
 
