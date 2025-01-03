@@ -92,11 +92,6 @@ class LineChartRepository {
         }
     }
     
-    
-    
-    
-    
-    // MARK: -
     // bpm & hrv
     private func parsingBpmHrvData(_ data: String?) -> (result: [LineChartDataModel]?, response: NetworkResponse) {
         guard let resultData = data else {
