@@ -64,7 +64,7 @@ class BarChartVC : UIViewController {
     private let dateFormatter = DateFormatter()
     private let timeFormatter = DateFormatter()
     private var calendar = Calendar.current
-    private var startDate = String()
+    private var targetDate = String()
     // DATE END
     
     // ----------------------------- CHART ------------------- //
@@ -331,39 +331,30 @@ class BarChartVC : UIViewController {
     
     // MARK: - Button Event
     @objc func shiftDate(_ sender: UIButton) {
+        moveDate(shouldAdd: sender.tag == TOMORROW_BUTTON_FLAG)
+        updateDisplayText()
         
-        let targetDate = setStartDate(startDate, sender.tag)
-        let endDate = setEndDate(startDate)
-        
-        getDataToServer(targetDate, endDate)
-        setDisplayDateText(targetDate, endDate)
+        if let startDate = getStartDate(),
+           let endDate = getEndDate() {
+            showChart(
+                startDate: startDate,
+                endDate: endDate
+            )
+        }
     }
         
     @objc func selectDayButton(_ sender: UIButton) {
-        
-        var targetDate = startDate
-        
-        switch (sender.tag) {
-        case DAY_FLAG:
-            currentButtonFlag = .DAY
-        case WEEK_FLAG:
-            currentButtonFlag = .WEEK
-            targetDate = MyDateTime.shared.dateCalculate(startDate, findMonday(targetDate), MINUS_DATE)
-        case MONTH_FLAG:
-            currentButtonFlag = .MONTH
-            targetDate = String(startDate.prefix(8)) + "01"
-        case YEAR_FLAG:
-            currentButtonFlag = .YEAR
-            targetDate = String(startDate.prefix(4)) + "-01-01"
-        default:
-            break
-        }
-        
-        let endDate = setEndDate(targetDate)
-
-        getDataToServer(targetDate, endDate)
-        setDisplayDateText(targetDate, endDate)
+        updateDateType(tag: sender.tag)
+        updateDisplayText()
         setButtonColor(sender)
+        
+        if let startDate = getStartDate(),
+           let endDate = getEndDate() {
+            showChart(
+                startDate: startDate,
+                endDate: endDate
+            )
+        }
     }
     
     @objc func calendarButtonEvent(_ sender: UIButton) {
@@ -399,296 +390,393 @@ class BarChartVC : UIViewController {
     }
     
     public func refreshView(_ type: BarChartType) {
-        
         chartType = type
         currentButtonFlag = .DAY
+        targetDate = DateTimeManager.shared.getCurrentLocalDate()
         
-        startDate = MyDateTime.shared.getCurrentDateTime(.DATE)
-        let endDate = MyDateTime.shared.dateCalculate(startDate, 1, PLUS_DATE)
-            
-        getDataToServer(startDate, endDate)
-    
+        updateDisplayText()
         setUI()
-        setDisplayDateText(startDate, endDate)
         setButtonColor(dayButton)
+        
+        if let startDate = getStartDate(),
+           let endDate = getEndDate() {
+            showChart(
+                startDate: startDate,
+                endDate: endDate
+            )
+        }
+        
     }
     
     func initVar() {
-                
         buttonList = [dayButton, weekButton, monthButton, yearButton]
-
     }
     
     // MARK: - CHART FUNC
-    private func viewChart(_ hourlyDataList: [HourlyData], _ startDate: String) {
-        
-        let dataDict = groupDataByDate(hourlyDataList)
-        
-        let sortedDate = sortedKeys(dataDict)
-        
-        let chartDataSet = getChartDataSet(sortedDate, dataDict, startDate)
-        
-        setChart(chartData: BarChartData(dataSets: chartDataSet.1), timeTable: chartDataSet.0, labelCnt: chartDataSet.0.count)
-        
-        activityIndicator.stopAnimating()
-        
-    }
-    
-    private func getChartDataSet(_ sortedDate: [String], _ dataDict: [String : HourlyDataStruct], _ startDate: String) -> ([String], [BarChartDataSet]) {
-        
-        switch (chartType) {
-        case .CALORIE, .STEP:
-            // double graph
-            let entries = createDoubleGraphEntries(sortedDate, dataDict, startDate)
-            
-            let label1 = chartType == .CALORIE ? "unit_tCal".localized() : "unit_step".localized()
-            let label2 = chartType == .CALORIE ? "unit_eCal".localized() : "unit_distance".localized()
-            
-            let dataSet1 =  chartDataSet(color: NSUIColor.GRAPH_RED, chartDataSet: BarChartDataSet(entries: entries.1, label: label1))
-            let dataSet2 =  chartDataSet(color: NSUIColor.GRAPH_BLUE, chartDataSet: BarChartDataSet(entries: entries.2, label: label2))
-            
-            let dataSets: [BarChartDataSet] = [dataSet1, dataSet2]
-            
-            return (entries.0, dataSets)
-            
-        default:
-            // single graph
-            let entries = createSingleGraphEntries(sortedDate, dataDict, startDate)
-            let dataSet =  chartDataSet(color: NSUIColor.MY_RED, chartDataSet: BarChartDataSet(entries: entries.1, label: "unit_arr_abb".localized()))
-            return (entries.0, [dataSet])
-        }
-    }
-    
-    private func createDoubleGraphEntries(_ sortedDate: [String], _ dataDict: [String : HourlyDataStruct], _ startDate: String) -> ([String], [BarChartDataEntry], [BarChartDataEntry]) {
-        
-        let buttonFlag = currentButtonFlag == .WEEK || currentButtonFlag == .YEAR
-        var findDate = currentButtonFlag == .YEAR ? String(startDate.prefix(7)) : startDate
-        
-        let index = getChartIndexCount(sortedDate)
-        var weekAndYearIdx = 0
-        
-        var entries1 = [BarChartDataEntry]()
-        var entries2 = [BarChartDataEntry]()
-        
-        var sumValue1 = 0
-        var sumValue2 = 0
-        
-        var timeTable: [String] = []
-        
-        for i in 0..<index {
-            let time = getTime(buttonFlag ? String(i) : sortedDate[i])
-            var yValue1 = 0.0
-            var yValue2 = 0.0
-            
-            if index != sortedDate.count {
-                // 고정 index WEEK(7), YEAR(12) 예외 처리
-                if dataDict.keys.contains(findDate) {
-                    (yValue1, yValue2) = getYValues(for: sortedDate, at: weekAndYearIdx, with: dataDict)
-
-                    weekAndYearIdx += 1
-                }
-                
-                findDate = currentButtonFlag == .YEAR ? getYearDate(findDate) : MyDateTime.shared.dateCalculate(findDate, 1, PLUS_DATE)
-            } else {
-                (yValue1, yValue2) = getYValues(for: sortedDate, at: i, with: dataDict)
-            }
-            
-            let entry1 = BarChartDataEntry(x: Double(i), y: yValue1)
-            let entry2 = BarChartDataEntry(x: Double(i), y: yValue2)
-            
-            entries1.append(entry1)
-            entries2.append(entry2)
-            
-            sumValue1 += Int(yValue1)
-            sumValue2 += Int(yValue2)
-            
-            timeTable.append(time)
-            
-        }
-        
-        setDoubleGraphUI(sumValue1, sumValue2)
-        
-        return (timeTable, entries1, entries2)
-    }
-    
-    
-    private func getYValues(for sortedDate: [String], at index: Int, with dataDict: [String : HourlyDataStruct]) -> (Double, Double) {
-        let checkType = chartType == .CALORIE
-        let yValue1 = checkType ? dataDict[sortedDate[index]]?.cal ?? 0 :
-                                  dataDict[sortedDate[index]]?.step ?? 0
-        let yValue2 = checkType ? dataDict[sortedDate[index]]?.activityCal ?? 0 :
-                                  dataDict[sortedDate[index]]?.distance ?? 0
-        return (yValue1, yValue2)
-    }
-    
-    private func createSingleGraphEntries(_ sortedDate: [String], _ dataDict: [String : HourlyDataStruct], _ startDate: String) -> ([String], [BarChartDataEntry]) {
-        
-        // ButtonFlag에 따라 x축에 들어가는 time String 설정
-        let buttonFlag = currentButtonFlag == .WEEK || currentButtonFlag == .YEAR
-        
-        // findDate : Week(7), Year(12)는 고정 인덱스를 가지고 있으므로 데이터가 없을 경우를 알기 위한 날짜 변수
-        // Year의 경우 Dictionary에 2024-01 형식(prefix(7))
-        var findDate = currentButtonFlag == .YEAR ? String(startDate.prefix(7)) : startDate
-        
-        // Week(7), Year(12)는 고정 인덱스
-        let index = getChartIndexCount(sortedDate)
-        // sortedDate idx : 값이 있고 값을 넣었을 경우에만 +1
-        var weekAndYearIdx = 0
-        
-        var entries = [BarChartDataEntry]()
-        var timeTable: [String] = []
-        var sumValue = 0
-        
-        for i in 0..<index {
-            let time = getTime(buttonFlag ? String(i) : sortedDate[i])
-            var yValue = 0.0
-            
-            if index != sortedDate.count {
-                // 고정 index WEEK(7), YEAR(12) 예외 처리
-                if dataDict.keys.contains(findDate) {
-                    yValue = dataDict[sortedDate[weekAndYearIdx]]?.arrCnt ?? 0
-                    weekAndYearIdx += 1
-                }
-                
-                findDate = currentButtonFlag == .YEAR ? getYearDate(findDate) : MyDateTime.shared.dateCalculate(findDate, 1, PLUS_DATE)
-            } else {
-                yValue = dataDict[sortedDate[i]]?.arrCnt ?? 0
-            }
-            
-            let entry = BarChartDataEntry(x: Double(i), y: yValue)
-            
-            entries.append(entry)
-            timeTable.append(time)
-            sumValue += Int(yValue)
-        }
-        
-        setSingleGraphUI(sumValue)
-        
-        return (timeTable, entries)
-    }
-    
-    private func getYearDate(_ date : String) -> String {
-        let year = String(date.prefix(5))
-        let month = (Int(date.suffix(2)) ?? 0) + 1
-        return month > 9 ? year + String(month) : year + "0" + String(month)
-    }
-    
-    private func getChartIndexCount(_ date: [String]) -> Int {
-        switch (currentButtonFlag) {
-        case .WEEK:
-            return 7
-        case .YEAR:
-            return 12
-        default:
-            return date.count
-        }
-    }
-    
-    private func getTime(_ time: String) -> String{
-        switch (currentButtonFlag) {
-        case .DAY:
-            return time
-        case .YEAR:
-            return String((Int(time) ?? 0) + 1)
-        case .WEEK:
-            return weekDays[Int(time) ?? 0]
-        case .MONTH:
-            return String(time.suffix(2)).first == "0" ? String(time.suffix(1)) : String(time.suffix(2))
-        }
-    }
-    
-    private func groupDataByDate(_ dataArray: [HourlyData]) -> [String : HourlyDataStruct] {
-        
-        var hourlyDataDict:[String : HourlyDataStruct] = [:]
-        
-        for data in dataArray {
-            let dateKey = getKeyForGrouping(for: data)
-            var dataStruct = hourlyDataDict[dateKey, default: HourlyDataStruct()]
-            dataStruct.updateData(data)
-            hourlyDataDict[dateKey] = dataStruct
-            
-        }
-        return hourlyDataDict
-    }
-    
-    private func getKeyForGrouping(for data: HourlyData) -> String {
-        switch currentButtonFlag {
-        case .DAY:
-            return data.hour
-        case .YEAR:
-            return String(data.date.prefix(7))
-        default:
-            return data.date
-        }
-    }
-
-    private func sortedKeys(_ dict : [String : HourlyDataStruct]) -> [String] {
-        switch currentButtonFlag {
-        case .DAY:
-            return dict.keys.map { Int($0) ?? 0 }.sorted().map { String($0) } // [Int] 정렬 -> [String]
-        default:
-            return dict.keys.sorted()   // 사전식(lexicographical) 정렬
-        }
-    }
-    
-    private func getDataToServer(_ startDate: String, _ endDate: String) {
-        
-        activityIndicator.startAnimating()
-        
+    private func showChart(
+        startDate: String,
+        endDate: String
+    ) {
         initUI()
+        
+        Task { @MainActor in
+            if let hourlyDataList = await getDataToServer(startDate, endDate) {
+                let (firstMap, secondMap) = self.getChartDataMap(hourlyDataList: hourlyDataList)
+                
+                if !firstMap.isEmpty {
+                    // chart
+                    let (sortedFirstMap, sortedSecondMap) = self.sortedMap(firstMap, secondMap)
+                    let barChartDataSets = self.getBarChartDataSets(sortedFirstMap, sortedSecondMap)
 
-        Task {
-            let getHourlyData = await graphService.getHourlyData(startDate: startDate, endDate: endDate)
-            let data = getHourlyData.0
-            let response = getHourlyData.1
-            
-            switch response {
-            case .success:
-                DispatchQueue.main.async {
-                    self.viewChart(data!, startDate)
+                    self.updateBarChart(
+                        chartData: barChartDataSets,
+                        timeTable: sortedFirstMap.map { $0.0 }
+                    )
+                    
+                    // value
+                    self.updateValue(
+                        firstValue: firstMap.values.compactMap { $0 }.reduce(0, +),
+                        secondValue: secondMap.values.compactMap { $0 }.reduce(0, +)
+                    )
+                } else {
+                    toastMessage("dialog_error_noData".localized())
                 }
-            case .noData:
-                toastMessage("dialog_error_noData".localized())
-            default:
-                toastMessage("dialog_error_server_noData".localized())
+            }
+        }
+    }
+    
+    private func getDataToServer(
+        _ startDate: String,
+        _ endDate: String
+    ) async -> [HourlyData]? {
+        await MainActor.run { activityIndicator.startAnimating() }
+    
+        let (data, response) = await graphService.getHourlyData(
+            startDate: startDate,
+            endDate: endDate
+        )
+        
+        await MainActor.run { activityIndicator.stopAnimating() }
+
+        switch response {
+        case .success:
+            return data
+        case .noData:
+            await MainActor.run { toastMessage("dialog_error_noData".localized()) }
+            return nil
+        default:
+            await MainActor.run { toastMessage("dialog_error_server_noData".localized()) }
+            return nil
+        }
+    }
+    
+    
+    // MARK: - data map
+    private func getChartDataMap(
+        hourlyDataList: [HourlyData]
+    ) -> (firstMap: [String : Double], secondMap: [String : Double]) {
+        switch (currentButtonFlag) {
+        case .DAY:
+            return getTodayChartMap(hourlyDataList: hourlyDataList)
+        case .WEEK:
+            return getWeekChartMap(hourlyDataList: hourlyDataList)
+        case .MONTH:
+            return getMonthChartMap(hourlyDataList: hourlyDataList)
+        case .YEAR:
+            return getYearChartMap(hourlyDataList: hourlyDataList)
+        }
+    }
+    
+    private func getTodayChartMap (
+        hourlyDataList: [HourlyData]
+    ) -> ([String : Double], [String : Double]) {
+        var firstMap: [String : Double] = [:]
+        var secondMap: [String : Double] = [:]
+        
+        let todayDataList = hourlyDataList.filter {
+            $0.date == targetDate
+        }
+        
+        todayDataList.forEach { data in
+            switch (chartType) {
+            case .ARR:
+                firstMap[data.hour] = Double(data.arrCnt)
+            case .CALORIE:
+                firstMap[data.hour] = Double(data.cal)
+                secondMap[data.hour] = Double(data.activityCal)
+            case .STEP:
+                firstMap[data.hour] = Double(data.step)
+                secondMap[data.hour] = Double(data.distance)
+            }
+        }
+        
+        return (firstMap, secondMap)
+    }
+    
+    private func getWeekChartMap (
+        hourlyDataList: [HourlyData]
+    ) -> ([String : Double], [String : Double]) {
+        guard let monday = findMonday(targetDate) else {
+          return ([:], [:])
+        }
+        
+        let days = DayOfWeek.allCases
+        let dates = (0..<7).compactMap { offset in
+          DateTimeManager.shared.adjustDate(monday, offset: offset, component: .day)
+        }
+        
+        var firstMap: [String : Double] = [:]
+        var secondMap: [String : Double] = [:]
+        
+        for (day, date) in zip(days, dates) {
+          let todayData = hourlyDataList.filter { $0.date == date }
+
+            switch (chartType) {
+            case .ARR:
+                firstMap[day.name] = todayData.compactMap { Double($0.arrCnt) }.reduce(0, +)
+            case .CALORIE:
+                firstMap[day.name] = todayData.compactMap { Double($0.cal) }.reduce(0, +)
+                secondMap[day.name] = todayData.compactMap { Double($0.activityCal) }.reduce(0, +)
+            case .STEP:
+                firstMap[day.name] = todayData.compactMap { Double($0.step) }.reduce(0, +)
+                secondMap[day.name] = todayData.compactMap { Double($0.distance) }.reduce(0, +)
+            }
+        }
+        
+        return (firstMap, secondMap)
+    }
+    
+    private func getMonthChartMap (
+        hourlyDataList: [HourlyData]
+    ) -> ([String : Double], [String : Double]) {
+        var firstMap: [String: Double]  = [:]
+        var secondMap: [String: Double] = [:]
+        
+        var date = String(targetDate.prefix(7)) + "-01"
+        guard let daysInMonth = DateTimeManager.shared.daysInMonth(from: targetDate) else {
+            return ([:], [:])
+        }
+        
+        for _ in 0..<daysInMonth {
+            let parts = date.split(separator: "-")
+            let xValue = String(parts[2])
+            
+            let targetDataList = hourlyDataList.filter {
+                $0.date == date
             }
             
-            activityIndicator.stopAnimating()
+            if !targetDataList.isEmpty {
+                switch (chartType) {
+                case .ARR:
+                    firstMap[xValue] = targetDataList.compactMap { Double($0.arrCnt) }.reduce(0, +)
+                case .CALORIE:
+                    firstMap[xValue] = targetDataList.compactMap { Double($0.cal) }.reduce(0, +)
+                    secondMap[xValue] = targetDataList.compactMap { Double($0.activityCal) }.reduce(0, +)
+                case .STEP:
+                    firstMap[xValue] = targetDataList.compactMap { Double($0.step) }.reduce(0, +)
+                    secondMap[xValue] = targetDataList.compactMap { Double($0.distance) }.reduce(0, +)
+                }
+            }
+            
+            date = DateTimeManager.shared.adjustDate(date, offset: 1, component: .day) ?? date
+        }
+        
+        return (firstMap, secondMap)
+    }
+    
+    private func getYearChartMap (
+        hourlyDataList: [HourlyData]
+    ) -> ([String : Double], [String : Double]) {
+        var firstMap: [String: Double]  = [:]
+        var secondMap: [String: Double] = [:]
+        
+        let groupedByMonth: [String?: [HourlyData]] = Dictionary(
+            grouping: hourlyDataList,
+            by: { data in
+                if data.date.count >= 7 {
+                    let start = data.date.index(data.date.startIndex, offsetBy: 5)
+                    let end   = data.date.index(data.date.startIndex, offsetBy: 7)
+                    return String(data.date[start..<end])  // ex) "04", "11"
+                } else {
+                    return nil
+                }
+            }
+        )
+        
+        for (maybeMonth, dataList) in groupedByMonth {
+            guard let month = maybeMonth else { continue }
+            
+            switch (chartType) {
+            case .ARR:
+                let sumArr = dataList.reduce(0) { acc, item in
+                    acc + (Double(item.arrCnt) ?? 0)
+                }
+                firstMap[month] = sumArr
+            case .CALORIE:
+                let sumCal = dataList.reduce(0) { acc, item in
+                    acc + (Double(item.cal) ?? 0)
+                }
+                let sumAct = dataList.reduce(0) { acc, item in
+                    acc + (Double(item.activityCal) ?? 0)
+                }
+                firstMap[month]  = sumCal
+                secondMap[month] = sumAct
+            case .STEP:
+                let sumStep = dataList.reduce(0) { acc, item in
+                    acc + (Double(item.step) ?? 0)
+                }
+                let sumDist = dataList.reduce(0) { acc, item in
+                    acc + (Double(item.distance) ?? 0)
+                }
+                firstMap[month]  = sumStep
+                secondMap[month] = sumDist
+            }
+        }
+        
+        return (firstMap, secondMap)
+    }
+    
+    private func sortedMap(
+        _ firstMap: [String : Double],
+        _ secondMap: [String : Double]
+    ) -> (first: [(String, Double)], second: [(String, Double)]) {
+        let sortedFirstEntries: [(String, Double)]
+        let sortedSecondEntries: [(String, Double)]
+        
+        switch currentButtonFlag {
+        case .WEEK:
+            let weekdayOrder = ["MON","TUE","WED","THU","FRI","SAT","SUN"]
+            sortedFirstEntries = firstMap.sorted { lhs, rhs in
+                (weekdayOrder.firstIndex(of: lhs.key) ?? 0)
+              < (weekdayOrder.firstIndex(of: rhs.key) ?? 0)
+            }
+            sortedSecondEntries = secondMap.sorted { lhs, rhs in
+                (weekdayOrder.firstIndex(of: lhs.key) ?? 0)
+              < (weekdayOrder.firstIndex(of: rhs.key) ?? 0)
+            }
+
+        default:
+            sortedFirstEntries = firstMap.sorted { lhs, rhs in
+                (Int(lhs.key) ?? 0) < (Int(rhs.key) ?? 0)
+            }
+            sortedSecondEntries = secondMap.sorted { lhs, rhs in
+                (Int(lhs.key) ?? 0) < (Int(rhs.key) ?? 0)
+            }
+        }
+        
+        return (sortedFirstEntries, sortedSecondEntries)
+    }
+    
+    private func getBarChartDataSets(
+        _ firstMap: [(String, Double)],
+        _ secondMap: [(String, Double)]
+    ) -> BarChartData {
+        switch (chartType) {
+        // single bar
+        case .ARR:
+            let (firstLabel, _) = getLabel()
+            
+            // entries
+            let entries = firstMap.enumerated().map { index, element in
+                BarChartDataEntry(x: Double(index), y: element.1)
+            }
+            // data set
+            let dataSet = BarChartDataSet(entries: entries, label: firstLabel)
+            dataSet.setColor(NSUIColor.GRAPH_RED)
+            dataSet.valueFormatter = CombinedValueFormatter()
+            
+            return BarChartData(dataSets: [dataSet])
+            
+        // double bar
+        case .CALORIE, .STEP:
+            let (firstLabel, secondLabel) = getLabel()
+            
+            // entries
+            let firstEntries = firstMap.enumerated().map { index, element in
+                BarChartDataEntry(x: Double(index), y: element.1)
+            }
+            let scondEntries = secondMap.enumerated().map { index, element in
+                BarChartDataEntry(x: Double(index), y: element.1)
+            }
+            
+            // data set
+            let firstDataSet = BarChartDataSet(entries: firstEntries, label: firstLabel)
+            firstDataSet.setColor(NSUIColor.GRAPH_RED)
+            firstDataSet.valueFormatter = CombinedValueFormatter()
+            
+            let secondDataSet = BarChartDataSet(entries: scondEntries, label: secondLabel)
+            secondDataSet.setColor(NSUIColor.GRAPH_BLUE)
+            secondDataSet.valueFormatter = CombinedValueFormatter()
+            
+            return BarChartData(dataSets: [firstDataSet, secondDataSet])
         }
     }
     
-    func chartDataSet(color: NSUIColor, chartDataSet: BarChartDataSet) -> BarChartDataSet {
-        chartDataSet.setColor(color)
-        chartDataSet.drawValuesEnabled = chartType == .ARR ? true : false
-        
-        if chartType == .ARR {
-            chartDataSet.valueFormatter = CombinedValueFormatter()
+    private func getLabel() -> (firstLabel: String, secondLabel: String) {
+        switch (chartType) {
+        case .ARR:
+            return ("unit_arr_abb".localized(), "")
+        case .CALORIE:
+            return ("unit_tCal".localized(), "unit_eCal".localized())
+        case .STEP:
+            return ("unit_step".localized(), "unit_distance".localized())
         }
-        
-        return chartDataSet
     }
     
-    func setChart(chartData: BarChartData, timeTable: [String], labelCnt: Int) {
-        let monthFlag = currentButtonFlag == .MONTH
-        let labelCount = monthFlag ? 14.3 : Double(labelCnt)
-        let moveToX = monthFlag ? Double(labelCnt) : 0.0
-        
-        configureBarChartSettings(chartData: chartData, labelCnt: labelCnt)
+    private func updateBarChart(
+        chartData: BarChartData,
+        timeTable: [String]
+    ) {
+        let labelCount = timeTable.count
+        let visibleXRangeMax = timeTable.count > 7 ? 7.5 : Double(timeTable.count)
+
+        configureBarChartSettings(chartData: chartData, labelCnt: labelCount)
         
         barChartView.data = chartData
         barChartView.xAxis.valueFormatter = IndexAxisValueFormatter(values: timeTable)
-        barChartView.setVisibleXRangeMaximum(labelCount)
-        barChartView.xAxis.setLabelCount(labelCnt, force: false)
+        barChartView.setVisibleXRangeMaximum(visibleXRangeMax)
+        barChartView.xAxis.setLabelCount(labelCount, force: false)
         barChartView.data?.notifyDataChanged()
         barChartView.notifyDataSetChanged()
-        barChartView.moveViewToX(moveToX)
+        barChartView.moveViewToX(0)
         chartZoomOut()
     }
     
-    private func configureBarChartSettings(chartData: BarChartData, labelCnt: Int) {
+    private func updateValue(
+        firstValue: Double,
+        secondValue: Double
+    ) {
+        switch (chartType) {
+        case .ARR:
+            singleContentsValueLabel.text = String(Int(firstValue))
+        case .CALORIE, .STEP:
+            let firstLabel = chartType == .CALORIE ? "unit_kcal".localized() : "unit_step_cap".localized()
+            let secondLabel = chartType == .CALORIE ? "unit_kcal".localized() : "unit_distance_km".localized()
+            let dayCount = getDayCount(for: currentButtonFlag)
+            
+            // Progress
+            let firstGoalProgress = Double(firstValue) / Double(firstGoal * dayCount)
+            topProgress.progress = Float(firstGoalProgress)
+            
+            let secondGoalProgress = chartType == .STEP ? (Double(secondValue) / 1000.0) / Double(secondGoal * dayCount) : Double(secondValue) / Double(secondGoal * dayCount)
+            bottomProgress.progress = Float(secondGoalProgress)
+            
+            // procent
+            topValueProcent.text = String(Int(firstGoalProgress * 100)) + "%"
+            bottomValueProcent.text = String(Int(secondGoalProgress * 100)) + "%"
+            
+            // text
+            topValue.text = String(Int(firstValue)) + " " + firstLabel
+            bottomValue.text = chartType == .STEP ? String(Double(Int(secondValue)) / 1000.0) + " " + secondLabel : String(Int(secondValue)) + " " + secondLabel
+        }
+    }
+
+    private func configureBarChartSettings(
+        chartData: BarChartData,
+        labelCnt: Int
+    ) {
         switch (chartType) {
         case .CALORIE, .STEP:
-            
             let groupSpace = 0.3
             let barSpace = 0.05
             let barWidth = 0.3
@@ -702,7 +790,6 @@ class BarChartVC : UIViewController {
             barChartView.xAxis.centerAxisLabelsEnabled = true
             
         default:
-            
             let defaultBarWidth = 0.85 // 기본 바 너비
             chartData.barWidth = defaultBarWidth
             
@@ -714,83 +801,137 @@ class BarChartVC : UIViewController {
     }
     
     // MARK: - DATE FUNC
-    func setStartDate(_ date: String, _ tag : Int) -> String {
+    func moveDate(shouldAdd: Bool) {
+        let component: Calendar.Component = switch (currentButtonFlag) {
+        case .DAY:      .day
+        case .WEEK:     .weekOfYear
+        case .MONTH:    .month
+        case .YEAR:     .year
+        }
         
-        let flag = tag == TOMORROW_BUTTON_FLAG ? PLUS_DATE : MINUS_DATE
-        
-        switch (currentButtonFlag) {
+        if let targetDate = DateTimeManager.shared.adjustDate(
+            targetDate,
+            offset: shouldAdd ? 1 : -1,
+            component: component
+        ) {
+            self.targetDate = targetDate
+        }
+    }
+    
+    private func updateDateType(tag: Int) {
+        switch (tag) {
+        case DAY_FLAG:
+            currentButtonFlag = .DAY
+        case WEEK_FLAG:
+            currentButtonFlag = .WEEK
+        case MONTH_FLAG:
+            currentButtonFlag = .MONTH
+        case YEAR_FLAG:
+            currentButtonFlag = .YEAR
+        default:
+            break
+        }
+    }
+    
+    func getStartDate() -> String? {
+        guard let startDate = switch (currentButtonFlag) {
         case .DAY:
-            startDate = MyDateTime.shared.dateCalculate(date, 1, flag)
-            return startDate
+            targetDate
         case .WEEK:
-            startDate = MyDateTime.shared.dateCalculate(date, 7, flag)
-            return MyDateTime.shared.dateCalculate(startDate, findMonday(startDate), MINUS_DATE)
+            findMonday(targetDate)
         case .MONTH:
-            startDate = MyDateTime.shared.dateCalculate(date, 1, flag, .month)
-            return String(startDate.prefix(8)) + "01"
+            String(targetDate.prefix(8)) + "01"
         case .YEAR:
-            startDate = MyDateTime.shared.dateCalculate(date, 1, flag, .year)
-            return String(startDate.prefix(4)) + "-01-01"
+            String(targetDate.prefix(4)) + "-01-01"
+        } else {
+            return nil
         }
+        
+        return DateTimeManager.shared.localDateStartToUtcDateString(startDate)
     }
     
-    func setEndDate(_ date: String) -> String {
-        switch (currentButtonFlag) {
-        case .DAY:
-            return MyDateTime.shared.dateCalculate(date, 1, PLUS_DATE)
-        case .WEEK:
-            return MyDateTime.shared.dateCalculate(date, 7, PLUS_DATE)
-        case .MONTH:
-            let numDay = MyDateTime.shared.findNumDay(date) ?? 30
-            return MyDateTime.shared.dateCalculate(date, numDay, PLUS_DATE)
-        case .YEAR:
-            let lastDate = String(date.prefix(4)) + "-12-01"
-            let numDay = MyDateTime.shared.findNumDay(lastDate) ?? 30
-            return MyDateTime.shared.dateCalculate(lastDate, numDay, PLUS_DATE)
-        }
-    }
     
-    func findMonday(_ startDate: String) -> Int {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.locale = Locale(identifier: "en_US_POSIX")
-        let weekdaySymbols = calendar.weekdaySymbols
-        
-        guard let weekdayName = findWeekday(startDate),
-              let weekdayIndex = weekdaySymbols.firstIndex(of: weekdayName) else {
-            return 0
-        }
-        // 'calendar.firstWeekday'로 주의 시작 요일을 고려해 인덱스 조정
-        // 그레고리안 캘린더에서 'firstWeekday'는 일반적으로 1(일요일)
-        // 월요일을 0으로 만들기 위해, 인덱스에서 1을 빼고, 7로 나눈 나머지를 계산
-        let mondayIndex = (weekdayIndex + 7 - calendar.firstWeekday) % 7
-        return mondayIndex
-    }
-    
-    func findWeekday(_ startDate: String) -> String? {
-        let splitDate = startDate.split(separator: "-")
-        var dateComponents = DateComponents()
-        dateComponents.year = Int(splitDate[0])
-        dateComponents.month = Int(splitDate[1])
-        dateComponents.day = Int(splitDate[2])
-        
-        let calendar = Calendar.current
-        
-        if let specificDate = calendar.date(from: dateComponents) {
-            let dateFormatter = DateFormatter()
-            dateFormatter.locale = Locale(identifier: "en_US_POSIX") // 로케일 설정
-            dateFormatter.dateFormat = "EEEE" // 요일의 전체 이름
-            let weekdayName = dateFormatter.string(from: specificDate)
+    func getEndDate() -> String? {
+        let baseDate: String? = {
+            switch currentButtonFlag {
+            case .DAY:
+                return DateTimeManager.shared.localDateEndToUtcDateString(targetDate)
 
-            return weekdayName
+            case .WEEK:
+                if let monday = findMonday(targetDate) {
+                    return DateTimeManager.shared.localDateEndToUtcDateString(monday)
+                }
+                return nil
+            case .MONTH:
+                let firstOfMonth = String(targetDate.prefix(8)) + "01"
+                return DateTimeManager.shared.localDateEndToUtcDateString(firstOfMonth)
+
+            case .YEAR:
+                let firstOfYear = String(targetDate.prefix(4)) + "-01-01"
+                return DateTimeManager.shared.localDateEndToUtcDateString(firstOfYear)
+            }
+        }()
+        
+        if let endUtcDate = baseDate {
+            switch (currentButtonFlag) {
+            case .DAY:
+                return DateTimeManager.shared.adjustDate(
+                    endUtcDate,
+                    offset: 1,
+                    component: .day
+                )
+            case .WEEK:
+                return DateTimeManager.shared.adjustDate(
+                    endUtcDate,
+                    offset: 1,
+                    component: .weekOfYear
+                )
+            case .MONTH:
+                return DateTimeManager.shared.adjustDate(
+                    endUtcDate,
+                    offset: 1,
+                    component: .month
+                )
+            case .YEAR:
+                return DateTimeManager.shared.adjustDate(
+                    endUtcDate,
+                    offset: 1,
+                    component: .year
+                )
+            }
         } else {
             return nil
         }
     }
     
+    
+    func findMonday(_ dateStr: String) -> String? {
+        guard let date = DateTimeManager.shared.getFormattedLocalDate(dateStr) else {
+            return nil
+        }
+
+        let calendar = Calendar(identifier: .gregorian)
+        // 일요일=1, 월요일=2, …, 토요일=7
+        let weekday = calendar.component(.weekday, from: date)
+        // 월요일=1, …, 일요일=7
+        let dayOfWeek = (weekday == 1) ? 7 : (weekday - 1)
+        
+        let daysToSubtract = dayOfWeek - 1  // 월요일→0, 화요일→1, …
+        guard let monday = calendar.date(
+            byAdding: .day,
+            value: -daysToSubtract,
+            to: date
+        ) else {
+            return nil
+        }
+        
+        return DateTimeManager.shared.getFormattedLocalDateString(monday)
+    }
+    
+    
     private func setCalendarClosure() {
         fsCalendar.didSelectDate = { [self] date in
-                        
-            startDate = MyDateTime.shared.getDateFormat().string(from: date)
+            targetDate = DateTimeManager.shared.getFormattedLocalDateString(date)
             
             switch (currentButtonFlag) {
             case .DAY:
@@ -809,23 +950,32 @@ class BarChartVC : UIViewController {
     }
     
     // MARK: - UI
-    private func setDisplayDateText(_ startDate: String, _ endDate: String) {
-        var displayText = startDate
-        let startDateText = MyDateTime.shared.changeDateFormat(startDate, false)
-        let endDateText = MyDateTime.shared.changeDateFormat(MyDateTime.shared.dateCalculate(endDate, 1, false), false)
-        
-        switch (currentButtonFlag) {
+    private func updateDisplayText() {
+        let displayDate: String
+
+        switch currentButtonFlag {
         case .DAY:
-            displayText = startDate
+            displayDate = targetDate
+
         case .WEEK:
-            displayText = "\(startDateText) ~ \(endDateText)"
+            if let monday = findMonday(targetDate),
+               let sunday = DateTimeManager.shared.adjustDate(monday, offset: 6, component: .day)
+            {
+                displayDate = "\(monday)~\(sunday.suffix(5))"
+            } else {
+                displayDate = targetDate
+            }
+
         case .MONTH:
-            displayText = "\(startDate.prefix(7))"
+            // 예: "2025-04-02" → "2025-04"
+            displayDate = String(targetDate.prefix(7))
+
         case .YEAR:
-            displayText = "\(startDate.prefix(4))"
+            // 예: "2025-04-02" → "2025"
+            displayDate = String(targetDate.prefix(4))
         }
-        
-        todayDisplay.text = displayText
+
+        todayDisplay.text = displayDate
     }
     
     func toastMessage(_ message: String) {
@@ -896,32 +1046,7 @@ class BarChartVC : UIViewController {
         }
     }
     
-    private func setSingleGraphUI(_ cnt : Int) {
-        singleContentsValueLabel.text = String(cnt)
-    }
-    
-    private func setDoubleGraphUI(_ value1 : Int, _ value2 : Int) {
-        
-        let label1 = chartType == .CALORIE ? "unit_kcal".localized() : "unit_step_cap".localized()
-        let label2 = chartType == .CALORIE ? "unit_kcal".localized() : "unit_distance_km".localized()
-        let dayCount = getDayCount(for: currentButtonFlag)
-        
-        // Progress
-        let firstGoalProgress = Double(value1) / Double(firstGoal * dayCount)
-        topProgress.progress = Float(firstGoalProgress)
-        
-        let secondGoalProgress = chartType == .STEP ? (Double(value2) / 1000.0) / Double(secondGoal * dayCount) : Double(value2) / Double(secondGoal * dayCount)
-        bottomProgress.progress = Float(secondGoalProgress)
-        
-        // procent
-        topValueProcent.text = String(Int(firstGoalProgress * 100)) + "%"
-        bottomValueProcent.text = String(Int(secondGoalProgress * 100)) + "%"
-        
-        // text
-        topValue.text = String(value1) + " " + label1
-        bottomValue.text = chartType == .STEP ? String(Double(value2) / 1000.0) + " " + label2 :
-                                                String(value2) + " " + label2
-    }
+
     
     private func getDayCount(for buttonFlag: DateType) -> Int {
         switch buttonFlag {
@@ -944,6 +1069,7 @@ class BarChartVC : UIViewController {
             barChartView.isHidden = false
         }
     }
+
     
     // MARK: - addViews
     private func addViews() {

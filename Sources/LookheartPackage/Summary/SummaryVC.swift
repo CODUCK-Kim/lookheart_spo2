@@ -8,11 +8,12 @@ public class SummaryViewController : UIViewController {
     
     private let BPM_BUTTON_TAG = 1
     private let ARR_BUTTON_TAG = 2
-    private let CAL_BUTTON_TAG = 3
-    private let STEP_BUTTON_TAG = 4
-    private let STRESS_BUTTON_TAG = 5
-    private let SPO2_BUTTON_TAG = 6
-    private let BREATH_BUTTON_TAG = 7
+    private let HRV_BUTTON_TAG = 3
+    private let CAL_BUTTON_TAG = 4
+    private let STEP_BUTTON_TAG = 5
+    private let STRESS_BUTTON_TAG = 6
+    private let SPO2_BUTTON_TAG = 7
+    private let BREATH_BUTTON_TAG = 8
     
     
     
@@ -26,11 +27,11 @@ public class SummaryViewController : UIViewController {
     }()
     
     private lazy var buttons: [UIButton] = {
-        return [bpmButton, arrButton, calorieButton, stepButton, stressButton, spo2Button, breathButton]
+        return [bpmButton, arrButton, hrvButton, calorieButton, stepButton, stressButton, spo2Button, breathButton]
     }()
     
     private lazy var images: [UIImageView] = {
-        return [bpmImage, arrImage, calorieImage, stepImage, stressImage, spo2Image, breatheImage]
+        return [bpmImage, arrImage, hrvImage, calorieImage, stepImage, stressImage, spo2Image, breatheImage]
     }()
     
     
@@ -43,6 +44,12 @@ public class SummaryViewController : UIViewController {
         let image = UIImage(named: "summary_bpm")?.withRenderingMode(.alwaysTemplate)
         $0.image = image
         $0.tintColor = UIColor.white
+    }
+    
+    private lazy var hrvImage = UIImageView().then {
+        let image = UIImage(named: "summary_hrv")?.withRenderingMode(.alwaysTemplate)
+        $0.image = image
+        $0.tintColor = UIColor.lightGray
     }
     
     private lazy var arrImage = UIImageView().then {
@@ -97,6 +104,22 @@ public class SummaryViewController : UIViewController {
         $0.isEnabled = true
         $0.isUserInteractionEnabled = true
         $0.tag = BPM_BUTTON_TAG
+        $0.addTarget(self, action: #selector(ButtonEvent(_:)), for: .touchUpInside)
+    }
+    
+    private lazy var hrvButton = UIButton().then {
+        $0.setTitle("unit_hrv_upper".localized(), for: .normal)
+        $0.setTitleColor(.lightGray, for: .normal)
+        $0.titleLabel?.font = UIFont.systemFont(ofSize: 12, weight: .heavy)
+        $0.titleLabel?.contentMode = .center
+        $0.backgroundColor = .white
+        $0.layer.borderColor = UIColor(red: 234/255, green: 235/255, blue: 237/255, alpha: 1.0).cgColor
+        $0.layer.borderWidth = 3
+        $0.layer.cornerRadius = 15
+        $0.titleEdgeInsets = UIEdgeInsets(top: 25, left: 0, bottom: 0, right: 0)
+        $0.isEnabled = true
+        $0.isUserInteractionEnabled = true
+        $0.tag = HRV_BUTTON_TAG
         $0.addTarget(self, action: #selector(ButtonEvent(_:)), for: .touchUpInside)
     }
     
@@ -209,6 +232,9 @@ public class SummaryViewController : UIViewController {
         case ARR_BUTTON_TAG:
             setChild(selectChild: barChartView, in: self.view)
             barChartView.refreshView(.ARR)
+        case HRV_BUTTON_TAG:
+            setChild(selectChild: lineChartView, in: self.view)
+            lineChartView.refreshView(lineChart: .HRV)
         case STRESS_BUTTON_TAG:
             setChild(selectChild: lineChartView, in: self.view)
             lineChartView.refreshView(lineChart: .STRESS)
@@ -356,11 +382,26 @@ public class SummaryViewController : UIViewController {
         }
         
         
+        // hrv
+        contentView.addSubview(hrvButton)
+        hrvButton.snp.makeConstraints { make in
+            make.top.equalTo(bpmButton)
+            make.left.equalTo(bpmButton.snp.right).offset(10)
+            make.width.height.equalTo(bpmButton)
+        }
+  
+        contentView.addSubview(hrvImage)
+        hrvImage.snp.makeConstraints { make in
+            make.top.equalTo(hrvButton).offset(5)
+            make.centerX.equalTo(hrvButton)
+        }
+        
+        
         // arr
         contentView.addSubview(arrButton)
         arrButton.snp.makeConstraints { make in
             make.top.equalTo(bpmButton)
-            make.left.equalTo(bpmButton.snp.right).offset(10)
+            make.left.equalTo(hrvButton.snp.right).offset(10)
             make.width.height.equalTo(bpmButton)
         }
         
@@ -370,6 +411,7 @@ public class SummaryViewController : UIViewController {
             make.centerX.equalTo(arrButton)
         }
 
+        
         
         // stress
         contentView.addSubview(stressButton)
@@ -445,7 +487,6 @@ public class SummaryViewController : UIViewController {
             make.centerX.equalTo(stepButton)
         }
         
-
         addChild(lineChartView)
         view.addSubview(lineChartView.view)
         lineChartView.didMove(toParent: self)

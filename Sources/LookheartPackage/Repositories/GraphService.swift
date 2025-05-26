@@ -59,20 +59,33 @@ public class GraphService {
                             continue // Skip this record if any conversions fail
                         }
                         
-                        parsedRecords.append(HourlyData(
-                            eq: String(fields[0]),
-                            timezone: String(fields[2]),
-                            date: String(fields[1].split(separator: " ")[0]),
-                            year: String(fields[3]),
-                            month: String(fields[4]),
-                            day: String(fields[5]),
-                            hour: String(fields[6]),
-                            step: String(step),
-                            distance: String(distance),
-                            cal: String(cal),
-                            activityCal: String(activityCal),
-                            arrCnt: String(arrCnt)
-                        ))
+                        let utcDateTime = String(fields[1])
+                        
+                        if let localDateTime = DateTimeManager.shared.convertUtcToLocal(utcTimeStr: utcDateTime) {
+                            let splitLocalDateTime = localDateTime.split(separator: " ")
+                            let localDate = String(splitLocalDateTime[0])
+                            let localTime = String(splitLocalDateTime[1])
+                            
+                            let splitDate = localDate.split(separator: "-")
+                            let splitTime = localTime.split(separator: ":")
+                                                        
+                            parsedRecords.append(
+                                HourlyData(
+                                    eq: String(fields[0]),
+                                    timezone: String(fields[2]),
+                                    date: localDate,
+                                    year: String(splitDate[0]),
+                                    month: String(splitDate[1]),
+                                    day: String(splitDate[2]),
+                                    hour: String(splitTime[0]),
+                                    step: String(step),
+                                    distance: String(distance),
+                                    cal: String(cal),
+                                    activityCal: String(activityCal),
+                                    arrCnt: String(arrCnt)
+                                )
+                            )
+                        }
                     }
                 }
                 

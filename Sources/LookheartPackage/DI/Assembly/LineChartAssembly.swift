@@ -29,7 +29,7 @@ class LineChartAssembly: LookHeartAssembly {
         container.register(LineChartRepository.self) { r in
             LineChartRepository(
                 service: r.resolve(LineChartService.self)!,
-                dateTime: r.resolve(MyDateTime.self)!
+                dateTimeManager: r.resolve(DateTimeManager.self)!
             )
         }
         

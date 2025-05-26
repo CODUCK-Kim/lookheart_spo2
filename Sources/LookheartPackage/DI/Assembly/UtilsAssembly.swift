@@ -26,6 +26,10 @@ class UtilsAssembly: LookHeartAssembly {
             return MyDateTime.shared
         }
 
+        container.register(DateTimeManager.self) { _ in
+            return DateTimeManager.shared
+        }
+
         // keycahin
         container.register(Keychain.self) { _ in
             return Keychain.shared

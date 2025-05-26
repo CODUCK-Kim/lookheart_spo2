@@ -12,22 +12,22 @@ import DGCharts
 class LineChartRepository {
     // DI
     private let service: LineChartService
-    private let dateTime: MyDateTime
+    private let dateTimeManager: DateTimeManager
     
     //
-    private var targetDate: String
+    private var targetLocalDate: String
     private var lineChartType: LineChartType
     private var lineChartDateType: LineChartDateType
     private let decoder = JSONDecoder()
     
     init (
         service: LineChartService,
-        dateTime: MyDateTime
+        dateTimeManager: DateTimeManager
     ) {
         self.service = service
-        self.dateTime = dateTime
+        self.dateTimeManager = dateTimeManager
         
-        targetDate = dateTime.getCurrentDateTime(.DATE)
+        targetLocalDate = dateTimeManager.getCurrentLocalDate()
         lineChartType = .BPM
         lineChartDateType = .TODAY
     }
@@ -92,6 +92,7 @@ class LineChartRepository {
         }
     }
     
+    
     // bpm & hrv
     private func parsingBpmHrvData(_ data: String?) -> (result: [LineChartDataModel]?, response: NetworkResponse) {
         guard let resultData = data else {
@@ -112,7 +113,7 @@ class LineChartRepository {
             return (nil, .invalidResponse)
         }
         
-        let changedFormatData = LineChartDataModel.changeFormat(datalist: splitData)
+        let changedFormatData = LineChartDataModel.changeFormat(datalist: splitData, dateList: getDateList())
         
         return (changedFormatData, .success)
     }
@@ -136,7 +137,7 @@ class LineChartRepository {
         do {
             let stressDataArray = try decoder.decode([StressDataModel].self, from: jsonData)
             
-            let changedFormatData = LineChartDataModel.changeFormat(stressData: stressDataArray)
+            let changedFormatData = LineChartDataModel.changeFormat(stressData: stressDataArray, dateList: getDateList())
             
             return (changedFormatData, .success)
         } catch {
@@ -324,53 +325,80 @@ class LineChartRepository {
     
     // MARK: -
     func updateTargetDate(_ nextDate: Bool) {
-        targetDate = dateTime.dateCalculate(targetDate, 1, nextDate)
+        if let updateDate = dateTimeManager.adjustDate(
+            targetLocalDate,
+            offset: nextDate ? 1 : -1,
+            component: .day
+        ) {
+            targetLocalDate = updateDate
+        }
     }
     
     func updateTargetDate(_ date: Date) {
-        targetDate = dateTime.getDateFormat().string(from: date)
+        targetLocalDate = dateTimeManager.getFormattedDateString(date)
     }
     
     func getDisplayDate() -> String {
-        let startDate = getStartDate()
-        
         switch (lineChartDateType) {
         case .TODAY:
-            return startDate
+            return targetLocalDate
         case .TWO_DAYS, .THREE_DAYS:
-            let endDate = dateTime.dateCalculate(getEndDate(), 1, false)
-            
-            let startString = dateTime.changeDateFormat(startDate, false)
-            let endString = dateTime.changeDateFormat(endDate, false)
-            
-            return "\(startString) ~ \(endString)"
+            let offest = if lineChartDateType == .TWO_DAYS { 1 } else { 2 }
+            if let startDate = dateTimeManager.adjustDate(
+                targetLocalDate,
+                offset: -offest,
+                component: .day)
+            {
+                return "\(startDate.suffix(5)) ~ \(targetLocalDate.suffix(5))"
+            } else {
+                return targetLocalDate
+            }
         }
     }
     
     private func getStartDate() -> String {
-        let day: Int
-        
-        switch lineChartDateType {
-        case .TODAY:
-            day = 0
-        case .TWO_DAYS:
-            day = 1
-        case .THREE_DAYS:
-            day = 2
+        let day = switch lineChartDateType {
+        case .TODAY:        0
+        case .TWO_DAYS:     1
+        case .THREE_DAYS:   2
         }
         
-        return dateTime.dateCalculate(targetDate, day, false)
+        if let startUTCDate = dateTimeManager.localDateStartToUtcDateString(targetLocalDate) {
+            return dateTimeManager.adjustDate(startUTCDate, offset: -day, component: .day) ?? targetLocalDate
+        } else {
+            return dateTimeManager.adjustDate(targetLocalDate, offset: -day, component: .day) ?? targetLocalDate
+        }
     }
     
     private func getEndDate() -> String {
-        return dateTime.dateCalculate(targetDate, 1, true)
+        if let endUTCDate = dateTimeManager.localDateEndToUtcDateString(targetLocalDate) {
+            return dateTimeManager.adjustDate(endUTCDate, offset: 1, component: .day) ?? targetLocalDate
+        } else {
+            return dateTimeManager.adjustDate(targetLocalDate, offset: 1, component: .day) ?? targetLocalDate
+        }
+    }
+    
+    private func getDateList() -> [String] {
+        let count = switch lineChartDateType {
+        case .TODAY:        1
+        case .TWO_DAYS:     2
+        case .THREE_DAYS:   3
+        }
+        
+        // -(count-1) ... 0 까지 1씩 증가하는 스트라이드
+        let offsets = stride(from: -(count - 1), through: 0, by: 1)
+        return offsets.map { offset in
+            dateTimeManager
+                .adjustDate(targetLocalDate, offset: offset, component: .day)
+                ?? targetLocalDate
+        }
     }
     
     // MARK: -
     func refreshData(_ type: LineChartType) {
         lineChartType = type
         lineChartDateType = .TODAY
-        targetDate = dateTime.getCurrentDateTime(.DATE)
+        targetLocalDate = dateTimeManager.getCurrentLocalDate()
     }
     
     func updateChartType(type: LineChartType) {

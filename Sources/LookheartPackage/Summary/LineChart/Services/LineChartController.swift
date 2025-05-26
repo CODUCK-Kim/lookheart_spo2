@@ -17,7 +17,6 @@ class LineChartController {
         self.dateTime = dateTime
     }
     
-    
     func setLineChart(
         lineChart: LineChartView,
         noDataText: String = "",
@@ -210,7 +209,15 @@ class LineChartController {
             guard let limitLines = getLimitLines(chartModel) else { return }
             addLimitLine(to: lineChart,limitLines: limitLines)
             
-            lineChart.leftAxis.axisMaximum = 200
+            if let maxValue = chartModel.stats?.maxValue {
+                if maxValue > 300 {
+                    lineChart.leftAxis.axisMaximum = 2000
+                } else {
+                    lineChart.leftAxis.axisMaximum = 200
+                }
+            }
+            
+            
             lineChart.leftAxis.axisMinimum = chartModel.chartType == .BPM ? 40 : 0
             
         case .STRESS:
