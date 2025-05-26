@@ -139,6 +139,10 @@ class LineChartRepository {
             
             let changedFormatData = LineChartDataModel.changeFormat(stressData: stressDataArray, dateList: getDateList())
             
+            changedFormatData.forEach {
+                print($0)
+            }
+            
             return (changedFormatData, .success)
         } catch {
             print("Error decoding JSON: \(error)")

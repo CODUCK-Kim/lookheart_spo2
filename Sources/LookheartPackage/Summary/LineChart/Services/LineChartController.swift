@@ -217,7 +217,6 @@ class LineChartController {
                 }
             }
             
-            
             lineChart.leftAxis.axisMinimum = chartModel.chartType == .BPM ? 40 : 0
             
         case .STRESS:
@@ -237,17 +236,6 @@ class LineChartController {
                     lineChart.leftAxis.axisMinimum = minValue
                 }
             }
-            
-//            lineChart.leftAxis.resetCustomAxisMax()
-//            lineChart.leftAxis.resetCustomAxisMin()
-//
-//            // y label count
-//            if let axisMax = lineChart.leftAxis.axisMaximum as Double?,
-//               let axisMin = lineChart.leftAxis.axisMinimum as Double? {
-//                let labelCount = Int((axisMax - axisMin) / 0.5) + 1
-//                lineChart.leftAxis.labelCount = labelCount
-//            }
-            
         case .BREATHE:
             lineChart.leftAxis.resetCustomAxisMax()
             lineChart.leftAxis.resetCustomAxisMin()
