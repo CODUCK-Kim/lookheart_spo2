@@ -22,7 +22,7 @@ public enum EndPoint: String {
     case getFindID = "msl/findID?"
     case getCheckLogin = "msl/CheckLogin"   // CheckLogin, Send Firebase Token
     case getCheckDupID = "msl/CheckIDDupe"
-    
+    case getInspectionMessage = "appversion/upgrade"
     
     // GET: Auth
     case getSendSms = "mslSMS/sendSMS"
@@ -64,5 +64,6 @@ public enum EndPoint: String {
     
     /* WSS */
     case wssEcg = "/Ecg"
+    case webEcg = "/realEcg"
     case wssSendEmail = "/Email"
 }
