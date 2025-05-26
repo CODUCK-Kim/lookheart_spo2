@@ -60,6 +60,7 @@ struct LineChartDataModel {
             if fields.count == 9 {
                 guard let bpm = Int(fields[4]),
                       let temp = Double(fields[5]),
+                      let hrv = Int(fields[6]),
                       let spo2 = Double(fields[7]),
                       let breathe = Int(fields[8]) else {
                     continue
@@ -81,6 +82,7 @@ struct LineChartDataModel {
                             timezone: String(fields[3]),
                             bpm: Double(bpm),
                             temp: Double(temp),
+                            hrv: Double(hrv),
                             spo2: Double(spo2),
                             breathe: Double(breathe)
                         )
