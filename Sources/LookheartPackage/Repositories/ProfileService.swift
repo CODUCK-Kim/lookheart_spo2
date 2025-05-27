@@ -283,11 +283,14 @@ public class ProfileService {
             }
             
             if let parsingData = getParsingHourlyData(hourlyData) {
-                let lastUserHealthData = parsingData.lastUserHealthData
+                // update health data
                 var userHealthData = parsingData.userHealthData
+                var lastUserHealthData = parsingData.lastUserHealthData
                 
-                userHealthData.arrCnt = arrCnt // update arrCnt
-                
+                // update arr Cnt data
+                userHealthData.arrCnt = arrCnt.totalCnt
+                lastUserHealthData.arrCnt = arrCnt.lastCnt
+            
                 return (
                     userHealthData: userHealthData,
                     lastUserHealthData: lastUserHealthData
@@ -296,7 +299,6 @@ public class ProfileService {
                 print("getUserHealthData parsingData Err")
                 return nil
             }
-            
         } catch {
             print(AlamofireController.shared.handleError(error))
             return nil
@@ -306,7 +308,10 @@ public class ProfileService {
     private func getArrCnt(
         startDate: String,
         endDate: String
-    ) async -> Int {
+    ) async -> (
+        totalCnt: Int,
+        lastCnt: Int
+    ) {
         let parameters: [String: Any] = [
             "eq": propEmail,
             "startDate": startDate,
@@ -314,15 +319,30 @@ public class ProfileService {
         ]
         
         do {
-            let response: ArrCnt = try await AlamofireController.shared.alamofireControllerAsync(
+            let response: [ArrDateEntry] = try await AlamofireController.shared.alamofireControllerAsync(
                 parameters: parameters,
-                endPoint: .getArrCnt,
+                endPoint: .getArrListData,
                 method: .get)
-            print("arrCnt: \(response)")
-            return Int(response.arrCnt) ?? 0
+            
+            let todayArrCnt = response.filter {
+                DateTimeManager.shared.checkLocalDate(utcDateTime: $0.writetime) && $0.address == nil
+            }.count
+            
+            let lastArrCnt = response.filter { item in
+                guard
+                    let timePart = item.writetime.split(separator: " ").last,
+                    let hourPart = timePart.split(separator: ":").first
+                else {
+                    return false
+                }
+                
+                return item.address == nil && String(hourPart) == DateTimeManager.shared.getCurrentUtcHour()
+            }.count
+            
+            return (totalCnt: todayArrCnt, lastCnt: lastArrCnt)
         } catch {
             print(AlamofireController.shared.handleError(error))
-            return 0
+            return (totalCnt: 0, lastCnt: 0)
         }
     }
     
