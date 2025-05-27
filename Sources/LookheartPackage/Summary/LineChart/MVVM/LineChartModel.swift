@@ -72,21 +72,24 @@ struct LineChartDataModel {
                     let splitLocalDateTime = localDateTime.split(separator: " ")
                     let localDate = String(splitLocalDateTime[0])
                     let localTime = String(splitLocalDateTime[1])
-                    parsedRecords.append(
-                        LineChartDataModel(
-                            idx: String(fields[0]),
-                            eq: String(fields[1]),
-                            writeDateTime: localDateTime,
-                            writeDate: localDate,
-                            writeTime: localTime,
-                            timezone: String(fields[3]),
-                            bpm: Double(bpm),
-                            temp: Double(temp),
-                            hrv: Double(hrv),
-                            spo2: Double(spo2),
-                            breathe: Double(breathe)
+                    
+                    if dateList.contains(localDate) {
+                        parsedRecords.append(
+                            LineChartDataModel(
+                                idx: String(fields[0]),
+                                eq: String(fields[1]),
+                                writeDateTime: localDateTime,
+                                writeDate: localDate,
+                                writeTime: localTime,
+                                timezone: String(fields[3]),
+                                bpm: Double(bpm),
+                                temp: Double(temp),
+                                hrv: Double(hrv),
+                                spo2: Double(spo2),
+                                breathe: Double(breathe)
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
