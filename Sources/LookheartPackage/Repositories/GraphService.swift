@@ -22,8 +22,7 @@ public class GraphService {
         endDate: String
     ) async -> ([HourlyData]?, NetworkResponse) {
         let parameters: [String: Any] = [
-            "eq": "jhaseung@medsyslab.co.kr",       // test
-//            "eq": propEmail,
+            "eq": propEmail,
             "startDate": startDate,
             "endDate": endDate
         ]

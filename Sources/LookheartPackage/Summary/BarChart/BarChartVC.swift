@@ -531,8 +531,6 @@ class BarChartVC : UIViewController {
         for (day, date) in zip(days, dates) {
           let todayData = hourlyDataList.filter { $0.date == date }
             
-            print(todayData)
-            
             switch (chartType) {
             case .ARR:
                 firstMap[day.name] = todayData.compactMap { Double($0.arrCnt) }.reduce(0, +)
