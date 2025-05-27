@@ -9,7 +9,6 @@ import Foundation
 
 @available(iOS 13.0.0, *)
 public class GraphService {
-    
     /// eq(0) : jhaseung@medsyslab.co.kr
     /// date(1) : 2024-01-15 05:00:00
     /// timeZone(2) : +09:00/Asia/Seoul/KR
@@ -18,7 +17,6 @@ public class GraphService {
     /// day(5) : 15
     /// hour(6) : 9
     /// data(7 ~ 11) : 1984|1495|307|98|9
-    /// 추후에 파싱 부분과 데이터 모델링 하는 부분 분리해야함!!
     func getHourlyData(
         startDate: String,
         endDate: String
@@ -30,8 +28,6 @@ public class GraphService {
             "endDate": endDate
         ]
         
-        print("startDate: \(startDate)")
-        print("endDate: \(endDate)")
         do {
             let hourlyData = try await AlamofireController.shared.alamofireControllerForString(
                 parameters: parameters,
