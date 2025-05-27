@@ -31,22 +31,9 @@ public class ArrViewController : UIViewController {
     private let TIME_FLAG = false
     
     private var calendar = Calendar.current
-    private let dateFormatter = DateFormatter()
     private let screenWidth = UIScreen.main.bounds.width
     
-    private var currentYear:String = ""
-    private var currentMonth:String = ""
-    private var currentDay:String = ""
-    
-    private var targetDate:String = ""
-    private var targetYear:String = ""
-    private var targetMonth:String = ""
-    private var targetDay:String = ""
-    
-    private var tomorrowDate:String = ""
-    private var tomorrowYear:String = ""
-    private var tomorrowMonth:String = ""
-    private var tomorrowDay:String = ""
+    private var targetDate: String = DateTimeManager.shared.getCurrentLocalDate()
     
     private var arrDateTagDict: [Int : ArrDateTagStruct] = [:]
     
@@ -92,8 +79,7 @@ public class ArrViewController : UIViewController {
     private lazy var chartView = LineChartView().then {
         $0.xAxis.enabled = false
         $0.noDataText = ""
-        $0.leftAxis.axisMaximum = 1024
-        $0.leftAxis.axisMinimum = 0
+    
         $0.rightAxis.enabled = false
         $0.legend.enabled = false
         $0.drawMarkers = false
@@ -140,7 +126,7 @@ public class ArrViewController : UIViewController {
     private let listBackground = UILabel().then {   $0.isUserInteractionEnabled = true   }
     
     private lazy var todayDisplay = UILabel().then {
-        $0.text = "\(currentYear)-\(currentMonth)-\(currentDay)"
+        $0.text = targetDate
         $0.textColor = .black
         $0.textAlignment = .center
         $0.baselineAdjustment = .alignCenters
@@ -173,16 +159,14 @@ public class ArrViewController : UIViewController {
     }
     
     @objc func shiftDate(_ sender: UIButton) {
-        
         switch(sender.tag) {
         case YESTERDAY_BUTTON_FLAG:
-            
-            dateCalculate(targetDate, 1, YESTERDAY)
-        default:    // TOMORROW_BUTTON_FLAG
-            dateCalculate(targetDate, 1, TOMORROW)
+            dateCalculate(shouldAdd: false)
+        default:
+            dateCalculate(shouldAdd: true)  // tomorrow
         }
         
-        arrTable()
+        showArrDataList()
     }
     
     private func buttonEnable() {
@@ -198,7 +182,6 @@ public class ArrViewController : UIViewController {
         addViews()
         
         setCalendarClosure()
-        
     }
     
     
@@ -210,50 +193,44 @@ public class ArrViewController : UIViewController {
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         initVar()
-        arrTable()
+        showArrDataList()
     }
     
     func initVar() {
-        
-        let currentDate = MyDateTime.shared.getSplitDateTime(.DATE)
-        
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        
-        currentYear = currentDate[0]
-        currentMonth = currentDate[1]
-        currentDay = currentDate[2]
-        
-        targetDate = MyDateTime.shared.getCurrentDateTime(.DATE)
-        targetYear = currentYear
-        targetMonth = currentMonth
-        targetDay = currentDay
-        
-        setTomorrow(targetDate)
+        targetDate = DateTimeManager.shared.getCurrentLocalDate()
         
         dissmissCalendar()
     }
     
     //MARK: - setTable
-    func arrTable() {
-        todayDisplay.text = changeTimeFormat(targetDate, YEAR_FLAG)
+    func showArrDataList() {
         initArray()
-        getArrList(targetDate, tomorrowDate)
+        getArrList()
     }
     
     
-    
-    func getArrList(_ startDate: String, _ endDate: String) {
+    func getArrList() {
         activityIndicator.startAnimating()
         
         Task {
-            let arrList = await arrService.getArrList(startDate: startDate, endDate: endDate)
-            let data = arrList.0
-            let response = arrList.1
-            
+            let (arrDataList, response) = await arrService.getArrList(
+                startDate: getStartDate(),
+                endDate: getEndDate()
+            )
+                    
             switch response {
             case .success:
-                if let arrList = data {
-                    self.setArrList(arrDateList: arrList)
+                let arrDataList = arrDataList?.filter {
+                    DateTimeManager.shared.checkLocalDate(
+                        utcDateTime: $0.writetime,
+                        localDate: targetDate
+                    )
+                }
+                
+                if let arrDataList = arrDataList {
+                    self.setArrList(arrDateList: arrDataList)
+                } else {
+                    toastMessage("dialog_error_noData".localized())
                 }
             case .session, .notConnected:
                 toastMessage("dialog_error_server_noData".localized())
@@ -265,6 +242,22 @@ public class ArrViewController : UIViewController {
         }
     }
     
+    private func getStartDate() -> String {
+        return DateTimeManager.shared.localDateStartToUtcDateString(targetDate) ?? targetDate
+    }
+    
+    private func getEndDate() -> String {
+        if let endUtcDate = DateTimeManager.shared.localDateEndToUtcDateString(targetDate) {
+            return DateTimeManager.shared.adjustDate(
+                endUtcDate,
+                offset: 1,
+                component: .day
+            ) ?? targetDate
+        } else {
+            return targetDate
+        }
+    }
+
     // MARK: - Select Arr Data
     private func selectArrData(_ dict: ArrDateTagStruct) {
         activityIndicator.startAnimating()
@@ -291,14 +284,19 @@ public class ArrViewController : UIViewController {
         for (idx, arrDate) in arrDateList.enumerated() {
             let emergencyFlag = arrDate.address != nil
             
+            let localDateTime = DateTimeManager.shared.convertUtcToLocal(utcTimeStr: arrDate.writetime) ?? arrDate.writetime
             let idxButton = setIdxButton(idx, emergencyFlag)
-            let titleButton = setTitleButton(idx, arrDate.writetime)
+            let titleButton = setTitleButton(idx, localDateTime)
             
             let background = UILabel().then {
                 $0.isUserInteractionEnabled = true
             }
             
-            arrDateTagDict[idx] = ArrDateTagStruct(writeDateTime: arrDate.writetime, emergencyFlag: emergencyFlag, address: arrDate.address)
+            arrDateTagDict[idx] = ArrDateTagStruct(
+                writeDateTime: arrDate.writetime,
+                emergencyFlag: emergencyFlag,
+                address: arrDate.address
+            )
             
             arrList.addArrangedSubview(background)
             idxButtonList.append(idxButton)
@@ -347,6 +345,9 @@ public class ArrViewController : UIViewController {
             arrChartDataSet.mode = .linear
             arrChartDataSet.drawValuesEnabled = false
             
+
+            chartView.leftAxis.axisMaximum = if arrData.data.max() ?? 0 > 1000 { 4096 } else { 1024 }
+            chartView.leftAxis.axisMinimum = 0
             chartView.data = LineChartData(dataSet: arrChartDataSet)
             chartView.data?.notifyDataChanged()
             chartView.notifyDataSetChanged()
@@ -386,45 +387,14 @@ public class ArrViewController : UIViewController {
         }
     }
     
-    // MARK: -    
-    func dateCalculate(_ date: String, _ day: Int, _ shouldAdd: Bool) {
-        guard let inputDate = dateFormatter.date(from: date) else { return }
-
-        let dayValue = shouldAdd ? day : -day
-
-        if let arrTargetDate = calendar.date(byAdding: .day, value: dayValue, to: inputDate) {
-            
-            let components = calendar.dateComponents([.year, .month, .day], from: arrTargetDate)
-            
-            if let year = components.year, let month = components.month, let day = components.day {
-                targetYear = "\(year)"
-                targetMonth = "\(month)"
-                targetDay = "\(day)"
-                
-                targetDate = "\(targetYear)-\(targetMonth)-\(targetDay)"
-                setTomorrow(targetDate)
-            }
+    // MARK: -
+    func dateCalculate(shouldAdd: Bool) {
+        if let moveDate = DateTimeManager.shared.adjustDate(targetDate, offset: shouldAdd ? 1 : -1, component: .day) {
+            targetDate = moveDate
+            todayDisplay.text = targetDate
         }
     }
-    
-    func setTomorrow(_ date: String) {
-        guard let inputDate = dateFormatter.date(from: date) else { return }
-        
-        if let arrTargetDate = calendar.date(byAdding: .day, value: 1, to: inputDate) {
-            
-            let components = calendar.dateComponents([.year, .month, .day], from: arrTargetDate)
-            
-            if let year = components.year, let month = components.month, let day = components.day {
-                tomorrowYear = "\(year)"
-                tomorrowMonth = "\(month)"
-                tomorrowDay = "\(day)"
-                
-                tomorrowDate = "\(tomorrowYear)-\(tomorrowMonth)-\(tomorrowDay)"
-            }
-        }
-    }
-    
-    
+
     // MARK: - Button Event
     func setIdxButton(_ idx: Int, _ flag: Bool) -> UIButton {
         let arrIdxButton = UIButton()
@@ -454,7 +424,7 @@ public class ArrViewController : UIViewController {
         arrTitleButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .heavy)
         arrTitleButton.titleLabel?.textAlignment = .center
         
-        arrTitleButton.setTitle("\(changeTimeFormat(title, TIME_FLAG))", for: .normal)
+        arrTitleButton.setTitle(title, for: .normal)
         arrTitleButton.setTitleColor(.black, for: .normal)
         
         arrTitleButton.setBackgroundColor(.white, for: .normal)
@@ -523,28 +493,9 @@ public class ArrViewController : UIViewController {
         
     }
     
-    func changeTimeFormat(_ dateString: String, _ isYearCheck: Bool) -> String {
-        if isYearCheck {
-            var dateComponents = dateString.components(separatedBy: "-")
-            dateComponents[1] = String(format: "%02d", Int(dateComponents[1])!)
-            dateComponents[2] = String(format: "%02d", Int(dateComponents[2])!)
-            
-            return dateComponents.joined(separator: "-")
-        } else {
-            let splitDate = dateString.split(separator: " ")    // 2023-11-09 9:16:18
-            var dateComponents = splitDate[1].components(separatedBy: ":")
-            let date = changeTimeFormat(String(splitDate[0]), YEAR_FLAG)
-            
-            dateComponents[0] = String(format: "%02d", Int(dateComponents[0])!)
-            dateComponents[1] = String(format: "%02d", Int(dateComponents[1])!)
-            dateComponents[2] = String(format: "%02d", Int(dateComponents[2])!)
-            
-            return "\(date) \(dateComponents.joined(separator: ":"))"
-        }
-    }
+
     
     func reconstructedPath(_ path: URL) -> String? {
-        
         if let documentsIndex = path.pathComponents.firstIndex(of: "arrECGData") {
             let desiredPathComponents = path.pathComponents[(documentsIndex + 1)...]
             return desiredPathComponents.joined(separator: "/")
@@ -577,7 +528,6 @@ public class ArrViewController : UIViewController {
     }
     
     func initArray() {
-        
         resetArrList()
         dissmissCalendar()
         stateIsHidden(isHidden: true)
@@ -617,13 +567,12 @@ public class ArrViewController : UIViewController {
     
     private func setCalendarClosure() {
         fsCalendar.didSelectDate = { [self] date in
+            targetDate = DateTimeManager.shared.getFormattedLocalDateString(date)
+
+            todayDisplay.text = targetDate
             
-            targetDate = MyDateTime.shared.getDateFormat().string(from: date)
-            tomorrowDate = MyDateTime.shared.dateCalculate(targetDate, 1, true)
-            
-            todayDisplay.text = changeTimeFormat(targetDate, YEAR_FLAG)
             initArray()
-            getArrList(targetDate, tomorrowDate)
+            getArrList()
             
             fsCalendar.isHidden = true
             chartView.isHidden = false
@@ -731,3 +680,4 @@ public class ArrViewController : UIViewController {
         }
     }
 }
+
