@@ -104,24 +104,27 @@ struct LineChartDataModel {
     ) -> [LineChartDataModel] {
         var parsedRecords = [LineChartDataModel]()
         
-        
         for data in stressData {
             if data.pnsPercent == 100.0 || data.snsPercent == 100.0 {
                 continue
             }
             
             if let localDateTime = DateTimeManager.shared.convertUtcToLocal(utcTimeStr: data.writeTime) {
-                let splitDateTime = localDateTime.split(separator: " ")
+                let splitLocalDateTime = localDateTime.split(separator: " ")
+                let localDate = String(splitLocalDateTime[0])
+                let localTime = String(splitLocalDateTime[1])
                 
-                parsedRecords.append(
-                    LineChartDataModel(
-                        writeDateTime: data.writeTime,
-                        writeDate: String(splitDateTime.first ?? ""),
-                        writeTime: String(splitDateTime.last ?? ""),
-                        pns: data.pnsPercent,
-                        sns: data.snsPercent
+                if dateList.contains(localDate) {
+                    parsedRecords.append(
+                        LineChartDataModel(
+                            writeDateTime: data.writeTime,
+                            writeDate: localDate,
+                            writeTime: localTime,
+                            pns: data.pnsPercent,
+                            sns: data.snsPercent
+                        )
                     )
-                )
+                }
             }
         }
         return parsedRecords
