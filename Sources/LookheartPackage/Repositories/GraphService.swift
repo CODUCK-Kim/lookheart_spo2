@@ -30,6 +30,8 @@ public class GraphService {
             "endDate": endDate
         ]
         
+        print("startDate: \(startDate)")
+        print("endDate: \(endDate)")
         do {
             let hourlyData = try await AlamofireController.shared.alamofireControllerForString(
                 parameters: parameters,
